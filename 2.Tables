@@ -1,0 +1,73 @@
+/*CREACION DE LAS TABLAS DE LA  BASE DE DATOS DBAHORROS*/
+use DBAHORROS
+go
+
+If Exists (Select * from sysobjects WHERE NAME ='TUsuario' and XTYPE='U')
+Drop Table TUsuario
+GO
+
+Create Table TUsuario
+(
+--===========================================================================
+--OBJETO			:   TUsuario
+--TIPO 				:   Table
+--DESCRIPCI?N		:  Tabla que almacena la informacion de los usuarios de la financiera
+--FECHA DE CREACION  	:   20/02/2026                 
+--AUTOR                 :   PAOLO ENRIQUE ZAVALETA FUENTES
+--OBSERVACIONES         :   Ninguna          
+--===========================================================================
+--PR                       MODIFICADO        FECHA               DESCRIPCI?N
+--===========================================================================
+	CodUsuario varchar(10) NOT NULL, ---codigo de usuario
+	NomUsuario varchar(130) NULL, ---nombre completo del usuario
+	Sexo varchar(1) check(Sexo in ('F','M')) null,---genero F:Femenino M: masculino
+	CodCargo varchar(1),---codigo de cargo
+	Cargo varchar(150),----nombre de cargo de usuario
+	Email varchar(50) NULL,---correo electronico
+	FecRegistro date NULL, ---fecha de registro del usuario
+	IndActivo varchar(1) check(IndActivo in ('1','0')) NULL ,-----indicador de usuario activo 1:no activo 0: ,
+	primary key (CodUsuario)
+	)
+
+go
+
+If Exists (Select * from sysobjects WHERE NAME ='TCliente' and XTYPE='U')
+Drop Table TCliente
+GO
+--===========================================================================
+--OBJETO			:   TCliente
+--TIPO 				:   Table
+--DESCRIPCI?N		:  Tabla que almacena los datos de los clientes
+--FECHA DE CREACION  :  27/08/2026                    
+--AUTOR              :   ?CADA UNO PONE SU NOMBRE?
+--OBSERVACIONES      :   Ninguna          
+--===========================================================================
+--PR                       MODIFICADO        FECHA               DESCRIPCI?N
+--=========================================================================
+ CREATE TABLE TCliente
+ (
+	CodCliente varchar(12) NOT NULL, ---codigo de cliente
+	ApePaterno varchar(60) NULL, ---apellidos paterno cliente natural
+	ApeMaterno varchar(60) NULL, ---apellidos materno cliente natural
+	Nombres varchar(60) NULL, ---nombres
+	Cliente varchar (160) not NULL,----Nombre completo del cliente
+	CodUbigeo varchar(6), -- codigo de ubigeo
+	FecNacimiento date NOT NULL, ---fecha de nacimiento juridico y natural
+	Sexo varchar(1) null check (Sexo in ('F','M')),---- M:Masculino, F:Femenino, E:empresa
+	IndEstCivil varchar(1) NULL check(IndEstCivil in ('S','C','D','V','O')),--- 
+	Nacionalidad varchar(60) null,
+	Direccion varchar(160) NULL,----direccion donde vive el cliente
+	Telefono varchar(15) null,----telefono del cliente
+	TipDocumento varchar(1) NOT NULL,-------tipo de documento 1: DNI 2: Pasaporte 3: RUC
+	NumDocIdentidad varchar(15) NULL,
+	ActEconomica varchar(1) null,---1: Profesional Independiente, 2: Empresa
+	DenActEconomica varchar(150) null,--nombre de la profesion
+	DirLaboral varchar(80) null,---direccion laboral del cliente
+	NumTelLaboral varchar(15) null,----
+	CodCurador varchar(12) null,---codigo de curador
+	CodUsuario  varchar(10) not null,
+	FecRegistro Datetime,---fecha de registro del sistema
+	IndCliActivo varchar(1) not null check(IndCliActivo='0' or IndCliActivo='1'),
+	primary key(codCliente),
+	foreign key(CodUsuario) references TUsuario (CodUsuario)
+	)
