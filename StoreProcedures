@@ -1,0 +1,87 @@
+USE DBAHORROS;
+GO
+
+-- ====================================================================
+-- 1. PROCEDIMIENTO: Listar Departamentos
+-- ====================================================================
+IF OBJECT_ID(N'uspListarDepartamentos', N'P') IS NOT NULL
+    DROP PROCEDURE uspListarDepartamentos;
+GO
+
+CREATE PROCEDURE uspListarDepartamentos
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT DISTINCT 
+        LEFT(IDDIST, 2) AS CodigoDepartamento,
+        NOMBDEP AS NombreDepartamento
+    FROM TUbigeo
+    ORDER BY CodigoDepartamento;
+END
+GO
+
+-- ====================================================================
+-- 2. PROCEDIMIENTO: Listar Distritos por Departamento
+-- ====================================================================
+IF OBJECT_ID(N'uspListarDistritos', N'P') IS NOT NULL
+    DROP PROCEDURE uspListarDistritos;
+GO
+
+CREATE PROCEDURE uspListarDistritos
+    @CodDepartamento VARCHAR(2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        NOMBPROV AS Provincia,
+        IDDIST AS CodigoDistrito,
+        NOMBDIST AS NombreDistrito
+    FROM TUbigeo
+    WHERE LEFT(IDDIST, 2) = @CodDepartamento
+    ORDER BY NOMBPROV, NOMBDIST;
+END
+GO
+
+-- ====================================================================
+-- 3. PROCEDIMIENTO: Listar Clientes por Código o Nombre de Depto
+-- ====================================================================
+IF OBJECT_ID(N'uspListarClientesPorDepartamento', N'P') IS NOT NULL
+    DROP PROCEDURE uspListarClientesPorDepartamento;
+GO
+
+CREATE PROCEDURE uspListarClientesPorDepartamento
+    @Busqueda VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        C.CodCliente AS [Código Cliente],
+        C.NumDocIdentidad AS [N° Documento],
+        C.ApePaterno AS [Apellido Paterno],
+        C.ApeMaterno AS [Apellido Materno],
+        C.Nombres AS [Nombres],
+        C.Direccion AS [Dirección],
+        C.Telefono AS [Teléfono],
+        C.CodUbigeo AS [Código Ubigeo],
+        ISNULL(U.NOMBDEP, 'NO REGISTRADO') AS [Departamento]
+    FROM TCliente C
+    LEFT JOIN (
+        SELECT DISTINCT 
+            LEFT(IDDIST, 2) AS CodDep, 
+            NOMBDEP 
+        FROM TUbigeo
+    ) U ON LEFT(C.CodUbigeo, 2) = U.CodDep
+    WHERE LEFT(C.CodUbigeo, 2) = @Busqueda 
+       OR U.NOMBDEP LIKE '%' + @Busqueda + '%'
+    ORDER BY C.ApePaterno, C.ApeMaterno, C.Nombres;
+END
+GO
+
+-- ====================================================================
+-- PRUEBAS DE LA TAREA
+-- ====================================================================
+EXEC uspListarClientesPorDepartamento '20';
+GO
