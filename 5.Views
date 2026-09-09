@@ -1,0 +1,141 @@
+USE DBAHORROS;
+GO
+
+--============ Ejercicio 01 ============--
+
+IF OBJECT_ID ('vDepartamentos', 'V') IS NOT NULL
+    DROP VIEW vDepartamentos;
+GO
+
+--===========================================================================
+-- OBJETO            : vDepartamentos
+-- TIPO              : Vista
+-- DESCRIPCIÓN       : Vista que lista los departamentos de forma única
+-- FECHA DE CREACION : 21/04/2022                  
+-- AUTOR             : PAOLO ENRIQUE ZAVALETA FUENTES
+-- OBSERVACIONES     : Ninguna          
+--===========================================================================
+-- PR                        MODIFICADO        FECHA                DESCRIPCIÓN
+--===========================================================================
+
+CREATE VIEW vDepartamentos
+AS
+    SELECT DISTINCT 
+        LEFT(IDDIST, 2) AS CodDepartamento,
+        NOMBDEP AS Departamento
+    FROM TUbigeo;
+GO
+
+-- Consulta de prueba
+SELECT * FROM vDepartamentos;
+GO
+
+---usamos la vista
+--consulta 1 : listar todos los datos
+select * from vListarClientes
+---consutamos los clientes que son de la agencia 001, y 003 y que son mayores de edad
+select * from vListarClientes
+where Agencia in ('001','003')
+and Edad>18
+order by Cliente
+
+ 
+----============Ejercicio 02==============------------
+IF OBJECT_ID ('vListarAgencia', 'V') IS NOT NULL
+    DROP VIEW vListarAgencia
+GO
+Create view vListarAgencia
+as
+   select distinct CodDepartamento as CodAgencia, NomDepartamento as Agencia 
+   from TUbigeo
+
+   select * from vListarAgencia
+
+
+IF OBJECT_ID ('vListarClientesAgencia', 'V') IS NOT NULL
+    DROP VIEW vListarClientesAgencia
+GO
+---===========================================================================
+--OBJETO			: vListarClientesAgencia 
+--TIPO 				: Vista
+--DESCRIPCIÓN		:  Vista que lista a los  clientes por agencia, consideradno que la agencia es los 3 primero dígitos del código del clientes 
+--                     y mostrar el nombre de la agencia
+--FECHA DE CREACION :   21/04/2022                  
+--AUTOR             :   “CADA UNO PONE SU NOMBRE”
+--OBSERVACIONES     :   Ninguna          
+--===========================================================================
+--PR                       MODIFICADO        FECHA               DESCRIPCIÓN
+--===========================================================================
+select * from TUbigeo
+CREATE VIEW vListarClientesAgencia
+AS  
+   SELECT A.CodAgencia,  A.Agencia,   Cliente,Year(Getdate())-Year(FecNacimiento) as Edad
+   from vListarAgencia A inner join TCliente C 
+   on (Substring(C.CodCliente,2,2)=A.CodAgencia)
+   where TipCliente=1
+
+
+
+
+
+   ---El siguiente codigo determina cuantos caracteres tiene un nombre de un cliente  utilizando vistas
+declare @Nro int
+Declare @encontrado int
+Declare @i int
+Declare @Dato varchar(250)
+set @Dato=(select max( Cliente) from vListarClientes)
+set @Nro =(select len(@Dato))
+set @i =1
+set @Encontrado=0
+
+
+while @i<@nro
+begin
+	if substring(@Dato,@i,1)='A'----determina cuantos caracteres de este tipo se tiene
+	  begin
+		 set @Encontrado =@Encontrado+1
+	     set @i =@i+1
+	   end
+	  else 
+	  set @i =@i+1
+end
+select @Dato as Dato,@Nro as Tamaño, @encontrado as 'Numero de "E" encontrado'
+
+
+----============Ejercicio 03==============------------
+USE DBAHORROS;
+GO
+
+IF OBJECT_ID ('vClientesMenores', 'V') IS NOT NULL
+    DROP VIEW vClientesMenores;
+GO
+
+--===========================================================================
+-- OBJETO            : vClientesMenores 
+-- TIPO              : Vista
+-- DESCRIPCIÓN       : Vista que lista a los clientes menores de edad y sus curadores
+-- FECHA DE CREACION : 09/09/2026                 
+-- AUTOR             : PAOLO ENRIQUE ZAVALETA FUENTES
+-- OBSERVACIONES     : Ninguna          
+--===========================================================================
+-- PR                        MODIFICADO        FECHA                DESCRIPCIÓN
+--===========================================================================
+
+CREATE VIEW vClientesMenores
+AS
+    SELECT 
+        c.CodCliente,
+        c.Cliente AS NomCliente,
+        c.FecNacimiento AS FecNacCliente,
+        cur.Cliente AS NomCurador,
+        cur.NumDocIdentidad AS NumDocCurador,
+        cur.Sexo AS SexCurador,
+        cur.DenActEconomica AS ActLaboralCurador
+    FROM TCliente c
+    INNER JOIN TCliente cur ON c.CodCurador = cur.CodCliente
+    WHERE c.FecNacimiento > DATEADD(YEAR, -18, GETDATE());
+GO
+
+-- Consulta de prueba
+SELECT * FROM vClientesMenores;
+GO
