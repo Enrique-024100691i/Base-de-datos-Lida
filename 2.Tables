@@ -39,7 +39,7 @@ GO
 --TIPO 				:   Table
 --DESCRIPCI?N		:  Tabla que almacena los datos de los clientes
 --FECHA DE CREACION  :  27/08/2026                    
---AUTOR              :   ?CADA UNO PONE SU NOMBRE?
+--AUTOR              :   PAOLO ENRIQUE ZAVALETA FUENTES
 --OBSERVACIONES      :   Ninguna          
 --===========================================================================
 --PR                       MODIFICADO        FECHA               DESCRIPCI?N
@@ -71,3 +71,99 @@ GO
 	primary key(codCliente),
 	foreign key(CodUsuario) references TUsuario (CodUsuario)
 	)
+
+--select * from TCliente
+--insert into TCliente select * from TCliente1
+
+---select * from [dbo].[TCliente2]
+select * from TUbigeo
+--select * from TUsuario1
+--insert into TUsuario select * from TUsuario1
+--select * from TUsuario
+
+--select * from [dbo].[TCliente1]
+--insert into TCliente select * from [dbo].[TCliente1]
+--select * from TCliente
+
+USE DBAHORROS;
+GO
+
+-- Recrear la tabla TUbigeo
+IF OBJECT_ID('TUbigeo', 'U') IS NOT NULL 
+    DROP TABLE TUbigeo;
+GO
+
+CREATE TABLE TUbigeo (
+    CodUbigeo varchar(6) NOT NULL,
+    NomDepartamento varchar(100) NOT NULL,
+    CodDepartamento varchar(2) NOT NULL,
+    NomProvincia varchar(100) NOT NULL,
+    CodProvincia varchar(2) NOT NULL,
+    NomDistrito varchar(100) NOT NULL,
+    CodDistrito varchar(2) NOT NULL,
+    CONSTRAINT PK_TUbigeo PRIMARY KEY (CodUbigeo)
+);
+GO
+
+
+USE DBAHORROS;
+GO
+
+-- SP 1: Listar Departamentos
+IF OBJECT_ID(N'uspListarDepartamentos', N'P') IS NOT NULL 
+    DROP PROCEDURE uspListarDepartamentos;
+GO
+
+CREATE PROCEDURE uspListarDepartamentos
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT DISTINCT 
+        LEFT(IDDIST, 2) AS CodDepartamento, 
+        NOMBDEP AS NomDepartamento
+    FROM TUbigeo
+    ORDER BY CodDepartamento;
+END;
+GO
+
+-- SP 2: Listar Provincias
+IF OBJECT_ID(N'uspListarProvincias', N'P') IS NOT NULL 
+    DROP PROCEDURE uspListarProvincias;
+GO
+
+CREATE PROCEDURE uspListarProvincias
+    @CodDepartamento VARCHAR(2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT DISTINCT 
+        LEFT(IDDIST, 4) AS CodProvincia, 
+        NOMBPROV AS NomProvincia
+    FROM TUbigeo
+    WHERE LEFT(IDDIST, 2) = @CodDepartamento
+    ORDER BY CodProvincia;
+END;
+GO
+
+-- SP 3: Listar Distritos
+IF OBJECT_ID(N'uspListarDistritos', N'P') IS NOT NULL 
+    DROP PROCEDURE uspListarDistritos;
+GO
+
+CREATE PROCEDURE uspListarDistritos
+    @CodDepartamento VARCHAR(2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        NOMBPROV AS Provincia,
+        IDDIST AS CodigoDistrito, 
+        NOMBDIST AS NombreDistrito
+    FROM TUbigeo
+    WHERE LEFT(IDDIST, 2) = @CodDepartamento
+    ORDER BY IDDIST;
+END;
+GO
