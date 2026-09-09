@@ -1,0 +1,142 @@
+USE DBAHORROS;
+GO
+
+-- ===========================================================================
+-- INSERCIÓN DE DATOS (INSERT)
+-- ===========================================================================
+
+-- Insertar Datos en TUbigeo (Estructura real: IDDIST, NOMBDEP, NOMBPROV, NOMBDIST)
+INSERT INTO TUbigeo (IDDIST, NOMBDEP, NOMBPROV, NOMBDIST)
+VALUES ('010101', 'AMAZONAS', 'CHACHAPOYAS', 'CHACHAPOYAS');
+
+-- Insertar Usuario de Prueba
+INSERT INTO TUsuario (CodUsuario, NomUsuario, Sexo, CodCargo, Cargo, Email, FecRegistro, IndActivo)
+VALUES ('U001', 'PAOLO ENRIQUE ZAVALETA FUENTES', 'M', '1', 'ANALISTA DE SISTEMAS', 'pzavaleta@financiera.com', GETDATE(), '1');
+
+-- Insertar Cliente de Prueba
+INSERT INTO TCliente (CodCliente, ApePaterno, ApeMaterno, Nombres, Cliente, CodUbigeo, FecNacimiento, Sexo, IndEstCivil, Nacionalidad, Direccion, Telefono, TipDocumento, NumDocIdentidad, ActEconomica, DenActEconomica, DirLaboral, NumTelLaboral, CodCurador, CodUsuario, FecRegistro, IndCliActivo)
+VALUES ('CLI000000001', 'PEREZ', 'GOMEZ', 'JUAN', 'PEREZ GOMEZ JUAN', '010101', '1990-05-15', 'M', 'S', 'PERUANA', 'AV. PRIMERA 123', '987654321', '1', '45678912', '1', 'INGENIERO DE SOFTWARE', 'AV. CENTRAL 456', '014253687', NULL, 'U001', GETDATE(), '1');
+GO
+
+-- ===========================================================================
+-- CONSULTA DE DATOS (SELECT)
+-- ===========================================================================
+
+-- Consultar todos los registros
+SELECT * FROM TUsuario;
+SELECT * FROM TCliente;
+
+-- Consulta con JOIN para ver Clientes con su Ubigeo y Usuario que lo registró
+SELECT 
+    C.CodCliente,
+    C.Cliente,
+    C.NumDocIdentidad,
+    U.NOMBDEP AS NomDepartamento,
+    U.NOMBPROV AS NomProvincia,
+    U.NOMBDIST AS NomDistrito,
+    Us.NomUsuario AS RegistradoPor
+FROM TCliente C
+INNER JOIN TUbigeo U ON C.CodUbigeo = U.IDDIST
+INNER JOIN TUsuario Us ON C.CodUsuario = Us.CodUsuario;
+GO
+
+-- ===========================================================================
+-- ACTUALIZACIÓN DE DATOS (UPDATE)
+-- ===========================================================================
+
+-- Actualizar dirección y teléfono de un cliente
+UPDATE TCliente
+SET Direccion = 'AV. LAS FLORES 789',
+    Telefono = '912345678'
+WHERE CodCliente = 'CLI000000001';
+
+-- Desactivar un usuario
+UPDATE TUsuario
+SET IndActivo = '0'
+WHERE CodUsuario = 'U001';
+GO
+
+-- ===========================================================================
+-- ELIMINACIÓN DE DATOS (DELETE)
+-- ===========================================================================
+
+-- Eliminar un cliente específico
+DELETE FROM TCliente
+WHERE CodCliente = 'CLI000000001';
+
+-- Eliminar un usuario específico
+DELETE FROM TUsuario
+WHERE CodUsuario = 'U001';
+GO
+
+-- ===========================================================================
+-- FUNCIONES DEFINIDAS POR EL USUARIO (UDF)
+-- ===========================================================================
+
+IF OBJECT_ID(N'dbo.fnListarClientesMenoresEdad', N'IF') IS NOT NULL
+    DROP FUNCTION dbo.fnListarClientesMenoresEdad;
+GO
+
+CREATE FUNCTION dbo.fnListarClientesMenoresEdad()
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT 
+        CodCliente, 
+        Cliente, 
+        DATEDIFF(YEAR, FecNacimiento, GETDATE()) - 
+            CASE 
+                WHEN (MONTH(FecNacimiento) > MONTH(GETDATE())) 
+                  OR (MONTH(FecNacimiento) = MONTH(GETDATE()) AND DAY(FecNacimiento) > DAY(GETDATE())) 
+                THEN 1 ELSE 0 
+            END AS Edad, 
+        NumDocIdentidad AS DNI
+    FROM TCliente
+    WHERE FecNacimiento > DATEADD(YEAR, -18, GETDATE())
+);
+GO
+
+-- Consulta para ejecutar la primera función
+SELECT * FROM dbo.fnListarClientesMenoresEdad();
+GO
+
+-- Ejercicio de aplicación 03
+-- Listar a todos los clientes menores de edad y sus curadores
+
+IF OBJECT_ID(N'dbo.fnListarClientesMenoresYCuradoresDetalle', N'IF') IS NOT NULL
+    DROP FUNCTION dbo.fnListarClientesMenoresYCuradoresDetalle;
+GO
+
+CREATE FUNCTION dbo.fnListarClientesMenoresYCuradoresDetalle()
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT 
+        -- Datos del Cliente Menor de Edad
+        C.CodCliente,
+        C.Cliente AS ClienteMenor,
+        DATEDIFF(YEAR, C.FecNacimiento, GETDATE()) - 
+            CASE 
+                WHEN (MONTH(C.FecNacimiento) > MONTH(GETDATE())) 
+                  OR (MONTH(C.FecNacimiento) = MONTH(GETDATE()) AND DAY(C.FecNacimiento) > DAY(GETDATE())) 
+                THEN 1 ELSE 0 
+            END AS EdadCliente,
+        C.NumDocIdentidad AS DNICliente,
+        
+        -- Datos del Curador 
+        C.CodCurador,
+        Cur.Cliente AS NombreCurador,
+        Cur.NumDocIdentidad AS DNICurador,
+        Cur.Sexo AS SexoCurador,
+        Cur.DenActEconomica AS ActividadLaboralCurador 
+    FROM TCliente C
+    INNER JOIN TCliente Cur ON C.CodCurador = Cur.CodCliente
+    WHERE C.FecNacimiento > DATEADD(YEAR, -18, GETDATE())
+);
+GO
+
+-- Ejecutar la segunda función
+SELECT * FROM dbo.fnListarClientesMenoresYCuradoresDetalle();
+GO
