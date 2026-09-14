@@ -2,131 +2,142 @@ USE DBAHORROS;
 GO
 
 -- ====================================================================
--- 1. FUNCIÓN: Calcular Edad del Cliente Natural
+-- 1. PROCEDIMIENTO: Listar Departamentos
 -- ====================================================================
-IF OBJECT_ID(N'dbo.fnCalcularEdadCliente', N'FN') IS NOT NULL 
-    DROP FUNCTION dbo.fnCalcularEdadCliente;
-GO 
+IF OBJECT_ID(N'uspListarDepartamentos', N'P') IS NOT NULL
+    DROP PROCEDURE uspListarDepartamentos;
+GO
 
-CREATE FUNCTION dbo.fnCalcularEdadCliente
-(
-    @CodCliente VARCHAR(20)
-)
-RETURNS INT
-AS 
+CREATE PROCEDURE uspListarDepartamentos
+AS
 BEGIN
-    DECLARE @Edad INT;
-    SET @Edad = (SELECT (YEAR(GETDATE()) - YEAR(FecNacimiento)) 
-                 FROM TCliente 
-                 WHERE CodCliente = @CodCliente);
-    RETURN @Edad;
-END;
-GO
-
-
--- ====================================================================
--- 2. FUNCIÓN: Contar Clientes por Tipo
--- ====================================================================
-IF OBJECT_ID(N'dbo.fnNumeroClientesTipo', N'FN') IS NOT NULL 
-    DROP FUNCTION dbo.fnNumeroClientesTipo;
-GO 
-
-CREATE FUNCTION dbo.fnNumeroClientesTipo
-(
-    @Tipo VARCHAR(1)
-)
-RETURNS INT
-AS 
-BEGIN
-    DECLARE @Total INT;
---    SET @Total = (SELECT COUNT(*) FROM TCliente WHERE TipCliente = @Tipo);
-    RETURN @Total;
-END;
-GO
-
-
--- ====================================================================
--- PRUEBAS DE EJECUCIÓN (Mostrando TODOS los datos del cliente + Edad)
--- ====================================================================
-
--- 1. Probar la edad con UN cliente específico y TODOS sus datos
-SELECT 
-    C.CodCliente AS 'Código Cliente',
-    C.NumDocIdentidad AS 'N° Documento',
-    C.ApePaterno AS 'Apellido Paterno',
-    C.ApeMaterno AS 'Apellido Materno',
-    C.Nombres AS 'Nombres',
-    C.Direccion AS 'Dirección',
-    C.Telefono AS 'Teléfono',
-    C.CodUbigeo AS 'Código Ubigeo',
-    C.FecNacimiento AS 'Fecha Nacimiento',
-    dbo.fnCalcularEdadCliente(C.CodCliente) AS 'Edad'
-FROM TCliente C
-WHERE C.CodCliente = '1001425876';
-GO
-
--- 2. Mostrar TODOS los datos de TODOS los clientes con su edad calculada
-SELECT 
-    C.CodCliente AS 'Código Cliente',
-    C.NumDocIdentidad AS 'N° Documento',
-    C.ApePaterno AS 'Apellido Paterno',
-    C.ApeMaterno AS 'Apellido Materno',
-    C.Nombres AS 'Nombres',
-    C.Direccion AS 'Dirección',
-    C.Telefono AS 'Teléfono',
-    C.CodUbigeo AS 'Código Ubigeo',
-    C.FecNacimiento AS 'Fecha Nacimiento',
-    dbo.fnCalcularEdadCliente(C.CodCliente) AS 'Edad'
-FROM TCliente C;
-GO
-
--- 3. Contar total de clientes por tipo
-SELECT dbo.fnNumeroClientesTipo('1') AS 'Total Clientes Tipo 1';
-GO
-
-USE DBAHORROS;
-GO
-
--- ====================================================================
--- OBJETIVO        : Listar Agencia, Cliente y Edad
--- OBJETO          : fnListarAgenciaClienteEdad
--- TIPO            : Inline Table-Valued Function
--- DESCRIPCIÓN     : Función que extrae la agencia desde el código del
---                   cliente y calcula su edad actual.
--- FECHA CREACIÓN  : 14/09/2026
--- AUTOR           : PAOLO ENRIQUE ZAVALETA FUENTES
--- OBSERVACIONES   : Ninguna
--- ====================================================================
-IF OBJECT_ID(N'dbo.fnListarAgenciaClienteEdad', N'IF') IS NOT NULL 
-    DROP FUNCTION dbo.fnListarAgenciaClienteEdad;
-GO 
-
-CREATE FUNCTION dbo.fnListarAgenciaClienteEdad()
-RETURNS TABLE
-AS 
-RETURN
-(
+    SET NOCOUNT ON;
+    
     SELECT 
-        -- Extrae la agencia del código de cliente (posiciones 2 y 3: ej. '03' de '003408012')
-        SUBSTRING(CodCliente, 2, 2) AS Agencia,
-        
-        -- Nombre del cliente (o CodCliente según la estructura de tu tabla)
-        CodCliente AS Cliente, 
-        
-        -- Cálculo de la edad actual
-        (DATEDIFF(YEAR, FecNacimiento, GETDATE()) - 
-            CASE 
-                WHEN (MONTH(FecNacimiento) > MONTH(GETDATE())) 
-                     OR (MONTH(FecNacimiento) = MONTH(GETDATE()) AND DAY(FecNacimiento) > DAY(GETDATE())) 
-                THEN 1 
-                ELSE 0 
-            END) AS Edad
-    FROM TCliente
-);
+        SUBSTRING(CodUbigeo, 1, 2) AS CodDepartamento,
+        NOMBDEP AS NombreDepartamento
+    FROM TUbigeo
+    GROUP BY SUBSTRING(CodUbigeo, 1, 2), NOMBDEP
+    ORDER BY NOMBDEP;
+END
 GO
 
 -- ====================================================================
--- EJEMPLO DE EJECUCIÓN:
+-- 2. PROCEDIMIENTO: Listar Distritos por Departamento
 -- ====================================================================
-SELECT * FROM dbo.fnListarAgenciaClienteEdad();
+IF OBJECT_ID(N'uspListarDistritos', N'P') IS NOT NULL
+    DROP PROCEDURE uspListarDistritos;
 GO
+
+CREATE PROCEDURE uspListarDistritos
+    @CodDepartamento VARCHAR(2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Reporte 1: Nombre del Departamento
+    SELECT DISTINCT 
+        'Departamento: ' + ISNULL(NOMBDEP, '') AS [Nombre Departamento]
+    FROM TUbigeo
+    WHERE SUBSTRING(CodUbigeo, 1, 2) = @CodDepartamento;
+
+    -- Reporte 2: Listado de Provincias y Distritos
+    SELECT 
+        NOMBPROV AS [Nombre Provincia],
+        SUBSTRING(CodUbigeo, 5, 2) AS [Codigo Distrito], 
+        NOMBDIST AS [Nombre Distrito] 
+    FROM TUbigeo
+    WHERE SUBSTRING(CodUbigeo, 1, 2) = @CodDepartamento
+    ORDER BY NOMBPROV, NOMBDIST;
+END
+GO
+
+-- ====================================================================
+-- 3. PROCEDIMIENTO: Listar Clientes por Código o Nombre de Depto
+-- ====================================================================
+IF OBJECT_ID(N'uspListarClientesPorDepartamento', N'P') IS NOT NULL
+    DROP PROCEDURE uspListarClientesPorDepartamento;
+GO
+
+CREATE PROCEDURE uspListarClientesPorDepartamento
+    @Busqueda VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        C.CodCliente AS [Código Cliente],
+        C.NumDocIdentidad AS [N° Documento],
+        C.ApePaterno AS [Apellido Paterno],
+        C.ApeMaterno AS [Apellido Materno],
+        C.Nombres AS [Nombres],
+        C.Cliente AS [Nombre Completo],
+        C.Direccion AS [Dirección],
+        C.Telefono AS [Teléfono],
+        C.CodUbigeo AS [Código Ubigeo],
+        ISNULL(U.NOMBDEP, 'NO REGISTRADO') AS [Departamento]
+    FROM TCliente C
+    LEFT JOIN (
+        SELECT 
+            SUBSTRING(CodUbigeo, 1, 2) AS CodDep, 
+            NOMBDEP 
+        FROM TUbigeo
+        GROUP BY SUBSTRING(CodUbigeo, 1, 2), NOMBDEP
+    ) U ON SUBSTRING(C.CodUbigeo, 1, 2) = U.CodDep
+    WHERE SUBSTRING(C.CodUbigeo, 1, 2) = @Busqueda 
+       OR U.NOMBDEP LIKE '%' + @Busqueda + '%'
+    ORDER BY C.ApePaterno, C.ApeMaterno, C.Nombres;
+END
+GO
+
+-- PRUEBAS DE EJECUCION
+EXEC uspListarDepartamentos;
+GO
+
+EXEC uspListarDistritos '01'; -- Prueba con '01' (Amazonas)
+GO
+
+EXEC uspListarClientesPorDepartamento '01';
+GO
+
+EXEC uspListarClientesPorDepartamento 'AMAZONAS';
+GO
+
+-- Crear un procedimiento almacenado que muestre a lista del numero de clientes que tienen los siguientes grupos de edad
+IF OBJECT_ID (N'uspNumeroClientesPorEdad', N'P') IS NOT NULL 
+    DROP PROCEDURE uspNumeroClientesPorEdad
+GO
+
+CREATE PROCEDURE uspNumeroClientesPorEdad
+AS
+--==========================================================================
+--OBJETO          : uspNumeroClientesPorEdad
+--TIPO            : Stored Procedure
+--DESCRIPCIÓN     : Procedimiento almacenado que muestra la lista del número 
+--                  de clientes agrupados por rangos de edad.
+--FECHA DE CREACION: 14/09/2026
+--AUTOR           : PAOLO ENRIQUE ZAVALETA FUENTES
+--OBSERVACIONES   : Ninguna          
+--===========================================================================
+
+BEGIN
+    SELECT 
+        CASE 
+            WHEN DATEDIFF(YEAR, FecNacimiento, GETDATE()) BETWEEN 0 AND 17 THEN '0-17'
+            WHEN DATEDIFF(YEAR, FecNacimiento, GETDATE()) BETWEEN 18 AND 30 THEN '18-30'
+            WHEN DATEDIFF(YEAR, FecNacimiento, GETDATE()) BETWEEN 31 AND 50 THEN '30-50'
+            ELSE 'mas de 60'
+        END AS Edades,
+        COUNT(CodCliente) AS NroCliente
+    FROM TCliente
+    GROUP BY 
+        CASE 
+            WHEN DATEDIFF(YEAR, FecNacimiento, GETDATE()) BETWEEN 0 AND 17 THEN '0-17'
+            WHEN DATEDIFF(YEAR, FecNacimiento, GETDATE()) BETWEEN 18 AND 30 THEN '18-30'
+            WHEN DATEDIFF(YEAR, FecNacimiento, GETDATE()) BETWEEN 31 AND 50 THEN '30-50'
+            ELSE 'mas de 60'
+        END
+END
+GO
+-- ejecutar el procedimiento
+EXEC uspNumeroClientesPorEdad
