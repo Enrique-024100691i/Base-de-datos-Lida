@@ -1,142 +1,132 @@
 USE DBAHORROS;
 GO
 
--- ===========================================================================
--- INSERCIÓN DE DATOS (INSERT)
--- ===========================================================================
+-- ====================================================================
+-- 1. FUNCIÓN: Calcular Edad del Cliente Natural
+-- ====================================================================
+IF OBJECT_ID(N'dbo.fnCalcularEdadCliente', N'FN') IS NOT NULL 
+    DROP FUNCTION dbo.fnCalcularEdadCliente;
+GO 
 
--- Insertar Datos en TUbigeo (Estructura real: IDDIST, NOMBDEP, NOMBPROV, NOMBDIST)
-INSERT INTO TUbigeo (IDDIST, NOMBDEP, NOMBPROV, NOMBDIST)
-VALUES ('010101', 'AMAZONAS', 'CHACHAPOYAS', 'CHACHAPOYAS');
-
--- Insertar Usuario de Prueba
-INSERT INTO TUsuario (CodUsuario, NomUsuario, Sexo, CodCargo, Cargo, Email, FecRegistro, IndActivo)
-VALUES ('U001', 'PAOLO ENRIQUE ZAVALETA FUENTES', 'M', '1', 'ANALISTA DE SISTEMAS', 'pzavaleta@financiera.com', GETDATE(), '1');
-
--- Insertar Cliente de Prueba
-INSERT INTO TCliente (CodCliente, ApePaterno, ApeMaterno, Nombres, Cliente, CodUbigeo, FecNacimiento, Sexo, IndEstCivil, Nacionalidad, Direccion, Telefono, TipDocumento, NumDocIdentidad, ActEconomica, DenActEconomica, DirLaboral, NumTelLaboral, CodCurador, CodUsuario, FecRegistro, IndCliActivo)
-VALUES ('CLI000000001', 'PEREZ', 'GOMEZ', 'JUAN', 'PEREZ GOMEZ JUAN', '010101', '1990-05-15', 'M', 'S', 'PERUANA', 'AV. PRIMERA 123', '987654321', '1', '45678912', '1', 'INGENIERO DE SOFTWARE', 'AV. CENTRAL 456', '014253687', NULL, 'U001', GETDATE(), '1');
+CREATE FUNCTION dbo.fnCalcularEdadCliente
+(
+    @CodCliente VARCHAR(20)
+)
+RETURNS INT
+AS 
+BEGIN
+    DECLARE @Edad INT;
+    SET @Edad = (SELECT (YEAR(GETDATE()) - YEAR(FecNacimiento)) 
+                 FROM TCliente 
+                 WHERE CodCliente = @CodCliente);
+    RETURN @Edad;
+END;
 GO
 
--- ===========================================================================
--- CONSULTA DE DATOS (SELECT)
--- ===========================================================================
 
--- Consultar todos los registros
-SELECT * FROM TUsuario;
-SELECT * FROM TCliente;
+-- ====================================================================
+-- 2. FUNCIÓN: Contar Clientes por Tipo
+-- ====================================================================
+IF OBJECT_ID(N'dbo.fnNumeroClientesTipo', N'FN') IS NOT NULL 
+    DROP FUNCTION dbo.fnNumeroClientesTipo;
+GO 
 
--- Consulta con JOIN para ver Clientes con su Ubigeo y Usuario que lo registró
+CREATE FUNCTION dbo.fnNumeroClientesTipo
+(
+    @Tipo VARCHAR(1)
+)
+RETURNS INT
+AS 
+BEGIN
+    DECLARE @Total INT;
+--    SET @Total = (SELECT COUNT(*) FROM TCliente WHERE TipCliente = @Tipo);
+    RETURN @Total;
+END;
+GO
+
+
+-- ====================================================================
+-- PRUEBAS DE EJECUCIÓN (Mostrando TODOS los datos del cliente + Edad)
+-- ====================================================================
+
+-- 1. Probar la edad con UN cliente específico y TODOS sus datos
 SELECT 
-    C.CodCliente,
-    C.Cliente,
-    C.NumDocIdentidad,
-    U.NOMBDEP AS NomDepartamento,
-    U.NOMBPROV AS NomProvincia,
-    U.NOMBDIST AS NomDistrito,
-    Us.NomUsuario AS RegistradoPor
+    C.CodCliente AS 'Código Cliente',
+    C.NumDocIdentidad AS 'N° Documento',
+    C.ApePaterno AS 'Apellido Paterno',
+    C.ApeMaterno AS 'Apellido Materno',
+    C.Nombres AS 'Nombres',
+    C.Direccion AS 'Dirección',
+    C.Telefono AS 'Teléfono',
+    C.CodUbigeo AS 'Código Ubigeo',
+    C.FecNacimiento AS 'Fecha Nacimiento',
+    dbo.fnCalcularEdadCliente(C.CodCliente) AS 'Edad'
 FROM TCliente C
-INNER JOIN TUbigeo U ON C.CodUbigeo = U.IDDIST
-INNER JOIN TUsuario Us ON C.CodUsuario = Us.CodUsuario;
+WHERE C.CodCliente = '1001425876';
 GO
 
--- ===========================================================================
--- ACTUALIZACIÓN DE DATOS (UPDATE)
--- ===========================================================================
-
--- Actualizar dirección y teléfono de un cliente
-UPDATE TCliente
-SET Direccion = 'AV. LAS FLORES 789',
-    Telefono = '912345678'
-WHERE CodCliente = 'CLI000000001';
-
--- Desactivar un usuario
-UPDATE TUsuario
-SET IndActivo = '0'
-WHERE CodUsuario = 'U001';
+-- 2. Mostrar TODOS los datos de TODOS los clientes con su edad calculada
+SELECT 
+    C.CodCliente AS 'Código Cliente',
+    C.NumDocIdentidad AS 'N° Documento',
+    C.ApePaterno AS 'Apellido Paterno',
+    C.ApeMaterno AS 'Apellido Materno',
+    C.Nombres AS 'Nombres',
+    C.Direccion AS 'Dirección',
+    C.Telefono AS 'Teléfono',
+    C.CodUbigeo AS 'Código Ubigeo',
+    C.FecNacimiento AS 'Fecha Nacimiento',
+    dbo.fnCalcularEdadCliente(C.CodCliente) AS 'Edad'
+FROM TCliente C;
 GO
 
--- ===========================================================================
--- ELIMINACIÓN DE DATOS (DELETE)
--- ===========================================================================
-
--- Eliminar un cliente específico
-DELETE FROM TCliente
-WHERE CodCliente = 'CLI000000001';
-
--- Eliminar un usuario específico
-DELETE FROM TUsuario
-WHERE CodUsuario = 'U001';
+-- 3. Contar total de clientes por tipo
+SELECT dbo.fnNumeroClientesTipo('1') AS 'Total Clientes Tipo 1';
 GO
 
--- ===========================================================================
--- FUNCIONES DEFINIDAS POR EL USUARIO (UDF)
--- ===========================================================================
-
-IF OBJECT_ID(N'dbo.fnListarClientesMenoresEdad', N'IF') IS NOT NULL
-    DROP FUNCTION dbo.fnListarClientesMenoresEdad;
+USE DBAHORROS;
 GO
 
-CREATE FUNCTION dbo.fnListarClientesMenoresEdad()
+-- ====================================================================
+-- OBJETIVO        : Listar Agencia, Cliente y Edad
+-- OBJETO          : fnListarAgenciaClienteEdad
+-- TIPO            : Inline Table-Valued Function
+-- DESCRIPCIÓN     : Función que extrae la agencia desde el código del
+--                   cliente y calcula su edad actual.
+-- FECHA CREACIÓN  : 14/09/2026
+-- AUTOR           : PAOLO ENRIQUE ZAVALETA FUENTES
+-- OBSERVACIONES   : Ninguna
+-- ====================================================================
+IF OBJECT_ID(N'dbo.fnListarAgenciaClienteEdad', N'IF') IS NOT NULL 
+    DROP FUNCTION dbo.fnListarAgenciaClienteEdad;
+GO 
+
+CREATE FUNCTION dbo.fnListarAgenciaClienteEdad()
 RETURNS TABLE
-AS
+AS 
 RETURN
 (
     SELECT 
-        CodCliente, 
-        Cliente, 
-        DATEDIFF(YEAR, FecNacimiento, GETDATE()) - 
+        -- Extrae la agencia del código de cliente (posiciones 2 y 3: ej. '03' de '003408012')
+        SUBSTRING(CodCliente, 2, 2) AS Agencia,
+        
+        -- Nombre del cliente (o CodCliente según la estructura de tu tabla)
+        CodCliente AS Cliente, 
+        
+        -- Cálculo de la edad actual
+        (DATEDIFF(YEAR, FecNacimiento, GETDATE()) - 
             CASE 
                 WHEN (MONTH(FecNacimiento) > MONTH(GETDATE())) 
-                  OR (MONTH(FecNacimiento) = MONTH(GETDATE()) AND DAY(FecNacimiento) > DAY(GETDATE())) 
-                THEN 1 ELSE 0 
-            END AS Edad, 
-        NumDocIdentidad AS DNI
+                     OR (MONTH(FecNacimiento) = MONTH(GETDATE()) AND DAY(FecNacimiento) > DAY(GETDATE())) 
+                THEN 1 
+                ELSE 0 
+            END) AS Edad
     FROM TCliente
-    WHERE FecNacimiento > DATEADD(YEAR, -18, GETDATE())
 );
 GO
 
--- Consulta para ejecutar la primera función
-SELECT * FROM dbo.fnListarClientesMenoresEdad();
-GO
-
--- Ejercicio de aplicación 03
--- Listar a todos los clientes menores de edad y sus curadores
-
-IF OBJECT_ID(N'dbo.fnListarClientesMenoresYCuradoresDetalle', N'IF') IS NOT NULL
-    DROP FUNCTION dbo.fnListarClientesMenoresYCuradoresDetalle;
-GO
-
-CREATE FUNCTION dbo.fnListarClientesMenoresYCuradoresDetalle()
-RETURNS TABLE
-AS
-RETURN
-(
-    SELECT 
-        -- Datos del Cliente Menor de Edad
-        C.CodCliente,
-        C.Cliente AS ClienteMenor,
-        DATEDIFF(YEAR, C.FecNacimiento, GETDATE()) - 
-            CASE 
-                WHEN (MONTH(C.FecNacimiento) > MONTH(GETDATE())) 
-                  OR (MONTH(C.FecNacimiento) = MONTH(GETDATE()) AND DAY(C.FecNacimiento) > DAY(GETDATE())) 
-                THEN 1 ELSE 0 
-            END AS EdadCliente,
-        C.NumDocIdentidad AS DNICliente,
-        
-        -- Datos del Curador 
-        C.CodCurador,
-        Cur.Cliente AS NombreCurador,
-        Cur.NumDocIdentidad AS DNICurador,
-        Cur.Sexo AS SexoCurador,
-        Cur.DenActEconomica AS ActividadLaboralCurador 
-    FROM TCliente C
-    INNER JOIN TCliente Cur ON C.CodCurador = Cur.CodCliente
-    WHERE C.FecNacimiento > DATEADD(YEAR, -18, GETDATE())
-);
-GO
-
--- Ejecutar la segunda función
-SELECT * FROM dbo.fnListarClientesMenoresYCuradoresDetalle();
+-- ====================================================================
+-- EJEMPLO DE EJECUCIÓN:
+-- ====================================================================
+SELECT * FROM dbo.fnListarAgenciaClienteEdad();
 GO
