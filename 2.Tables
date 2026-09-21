@@ -42,7 +42,7 @@ GO
 --TIPO 				:   Table
 --DESCRIPCI?N		:  Tabla que almacena los datos de los clientes
 --FECHA DE CREACION  :  27/02/2026                    
---AUTOR              :   ?CADA UNO PONE SU NOMBRE?
+--AUTOR              :   PAOLO ENRIQUE ZAVALETA FUENTES
 --OBSERVACIONES      :   Ninguna          
 --===========================================================================
 --PR                       MODIFICADO        FECHA               DESCRIPCI?N
@@ -75,8 +75,14 @@ GO
 	foreign key(CodUsuario) references TUsuario (CodUsuario)
 	)
 
+--para cumplir con el requisito del caso de estudio: de un cliente menor de edad no contar con renumeracion
+-- se modificara la estructura de la tabla Cliente
+-- Modificar la estructura de la tabla TCliente para agregar la columna Remcliente
+ALTER TABLE TCliente
+ADD Remcliente numeric(10,2) NULL;
+GO
 
-	--select * from TCliente
+--select * from TCliente
 --insert into TCliente select * from TCliente1
 
 ---select * from [dbo].[TCliente2]
@@ -88,3 +94,92 @@ GO
 --select * from [dbo].[TCliente1]
 --insert into TCliente select * from [dbo].[TCliente1]
 --select * from TCliente
+
+If Exists (Select * from sysobjects WHERE NAME ='TTipAhorro' and XTYPE='U')
+Drop Table TTipAhorro
+GO
+--===========================================================================
+--OBJETO		:   TTipAhorro
+--TIPO 				:   Table
+--DESCRIPCI?N		:  Tabla que almacena los datos de los tipos de productos de ahorro               
+--AUTOR              :   PAOLO ENRIQUE ZAVALETA FUENTES
+--OBSERVACIONES      :   Ninguna          
+--===========================================================================
+--PR                       MODIFICADO        FECHA               DESCRIPCION
+--=========================================================================
+
+--se modifican los tipos de datos
+Create table TTipAhorro
+(
+  CodTipAhorro varchar(6),---codigo de tipo de producto
+  NomProducto varchar(60),---nombre de producto de ahorro
+  TasInteres numeric,--tasa de interes de pago al cliente
+  MontMinimo numeric,---monto minimo de ahorro en cuenta
+  MontMaximo numeric,---monto maximo de ahorro en cuenta
+  Moneda     varchar(2),--moneda del tipo de ahorro 01: Soles, 02: Dólares, 03: Euros
+  Plazo      int, ----plazo minimo de ahorro
+  CodUsuario varchar(10),--el usuario que registra el tipo de ahorro
+  FecRegistro datetime,---fecha de registro del tipo de ahorro
+  IndVigente varchar(1) ---1:vigente, 0: No vigente
+  primary key (CodTipAhorro)
+)
+
+If Exists (Select * from sysobjects WHERE NAME ='TCuenta' and XTYPE='U')
+Drop Table TCuenta
+GO
+--===========================================================================
+--OBJETO			:   TCuenta
+--TIPO 				:   Table
+--DESCRIPCIÓN		:  Tabla que almacena los datos de las cuentas aperturadas por los clientes
+--FECHA DE CREACION  :   21/09/2026                    
+--AUTOR              :   PAOLO ENRIQUE ZAVALETA FUENTES
+--OBSERVACIONES      :   Ninguna          
+--===========================================================================
+--PR                       MODIFICADO        FECHA               DESCRIPCIÓN
+--=========================================================================
+
+CREATE TABLE TCuenta
+ (
+	NumCuenta varchar(10) NOT NULL,---numero de la cuenta del cliente
+	CodTipAhorro varchar(6) NOT NULL,-----tipo de cuenta 
+	CodCliente varchar(12) not null,---codigo de cliente
+	CodUsuario varchar(10) not null,--codigo de usuario que apertura la cuenra
+	MonApertura numeric(10,3) not null,----monto de apertura
+	SalCuenta numeric(10,3) not null,---saldo total de la cuenta
+	MontInteresGanado numeric(10,3) null,-- monto de interes ganado
+	PlzApertura int not null, -----plazo de apertura
+	FecApertura datetime not null,-----fecha de apertura
+	FecVencimiento datetime null,----fecha de vencimiento
+	IndCuenta varchar(1),----vigencia de cuenta—1: Activa 0: No cuenta
+	primary key(NumCuenta),
+	foreign key (CodTipAhorro) references TTipAhorro (CodTipAhorro),
+	foreign key (CodCliente) references TCliente (CodCliente),
+	foreign key (CodUsuario) references TUsuario (CodUsuario)
+)
+
+If Exists (Select * from sysobjects WHERE NAME ='TMovCuentacliente' and XTYPE='U')
+Drop Table TMovCuentaCliente
+GO
+--===========================================================================
+--OBJETO			:   TCuentaCliente
+--TIPO 				:   Table
+--DESCRIPCIÓN		:  Tabla que almacena los datos de los clientes con las cuentas aperturadas
+--FECHA DE CREACION  :   21/09/2026                    
+--AUTOR              :   PAOLO ENRIQUE ZAVALETA FUENTES
+--OBSERVACIONES      :   Ninguna                    
+--===========================================================================
+--PR                       MODIFICADO        FECHA               DESCRIPCIÓN
+--=========================================================================
+
+CREATE TABLE TMovCuentaCliente
+(
+	NumMovimiento numeric(10,0) ,----numero de movimiento de la cuenta
+	NumCuenta varchar(10) NOT NULL,---numero de la cuenta del cliente
+	MontMovimiento numeric(10,3) not null,----monto de movimiento de cuenta
+	TipMovimiento varchar(1) not null, ---1 :Deposito, 2; Retiro
+	FecMovimiento datetime not null,----fecha de movimiento de la cuenta
+	CodUsuario varchar(10) null, -----codigo de usuario en caso de que el movimiento se realice en ventanilla de banco
+	primary key (NumMovimiento),
+	foreign key (NumCuenta) references TCuenta (Numcuenta),
+	foreign key (CodUsuario) references TUsuario (CodUsuario)
+)
