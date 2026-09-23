@@ -14,7 +14,7 @@ BEGIN
     SET NOCOUNT ON;
 
     SELECT DISTINCT 
-        LEFT(IDDIST, 2) AS CodigoDepartamento,
+        LEFT(CodUbigeo, 2) AS CodigoDepartamento,
         NOMBDEP AS NombreDepartamento
     FROM TUbigeo
     ORDER BY CodigoDepartamento;
@@ -36,10 +36,10 @@ BEGIN
 
     SELECT 
         NOMBPROV AS Provincia,
-        IDDIST AS CodigoDistrito,
+        CodUbigeo AS CodigoDistrito,
         NOMBDIST AS NombreDistrito
     FROM TUbigeo
-    WHERE LEFT(IDDIST, 2) = @CodDepartamento
+    WHERE LEFT(CodUbigeo, 2) = @CodDepartamento
     ORDER BY NOMBPROV, NOMBDIST;
 END
 GO
@@ -70,7 +70,7 @@ BEGIN
     FROM TCliente C
     LEFT JOIN (
         SELECT DISTINCT 
-            LEFT(IDDIST, 2) AS CodDep, 
+            LEFT(CodUbigeo, 2) AS CodDep, 
             NOMBDEP 
         FROM TUbigeo
     ) U ON LEFT(C.CodUbigeo, 2) = U.CodDep
