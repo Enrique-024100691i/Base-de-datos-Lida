@@ -183,3 +183,33 @@ CREATE TABLE TMovCuentaCliente
 	foreign key (NumCuenta) references TCuenta (Numcuenta),
 	foreign key (CodUsuario) references TUsuario (CodUsuario)
 )
+
+select * from TCliente
+--insertar datos desde la tabla tipAhorro a TTipAhorro
+--insert into TTipAhorro select * from TipAhorro
+
+select * from TTipAhorro
+---modificacion de datos para integridad
+update TTipAhorro
+set Plazo= 12
+where CodTipAhorro in ('A003','A004','A005','A006','A007')
+
+
+alter table TTipAhorro
+alter column TasInteres decimal(4,3)
+---modificar la tasa de interes
+update TTipAhorro
+set TasInteres=6.5
+where CodTipAhorro='A003'
+
+update TTipAhorro
+set TasInteres=4.5
+where CodTipAhorro='A004'
+
+update TTipAhorro
+set TasInteres=3.5
+where CodTipAhorro='A005'
+
+update TTipAhorro
+set TasInteres=1.5
+where CodTipAhorro='A006'
