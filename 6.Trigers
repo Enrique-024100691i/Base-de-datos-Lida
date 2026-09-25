@@ -27,8 +27,79 @@ as
 -----ejecutar trigers
 SELECT * FROM TUsuario
 insert into TUsuario values ('IMEDINA','INGRID MEDINA ZEVALLOS','F',4,'Cajero-Operaciones','IMEDINA@MIBANQUITO.PE',GetDate(),1)
+insert into TUsuario values ('OQUISPE','ORLANDO QUISPE APAZA','M',4,'Cajero-Operaciones','OQUISPE@MIBANQUITO.PE',GetDate(),1)
 
-select * from TUsuario where CodUsuario='AACURIO'
+select * from TUsuario where CodCargo='1'
 update TUsuario
-set NumDocIdentidad='24673183'
-where CodUsuario='AACURIO'
+set Cargo='Gerente de Ventas'
+where CodCargo=1
+
+select * from TCuenta
+IF OBJECT_ID ('trValidarCuenta', 'TR') IS NOT NULL
+BEGIN
+    DROP TRIGGER trValidarCuenta
+END;
+go
+--========================================================================
+--OBJETO        : trValidarCuenta
+--TIPO          : Disparador
+--DESCRIPCIÓN   : Valida las restricciones de la tabla cuenta
+--                en la tabla cuenta
+--FECHA DE CREACION : 25/09/2026
+--AUTOR         : "CADA UNO PONE SU NOMBRE"
+--OBSERVACIONES : Ninguna
+--========================================================================
+--PR            MODIFICADO    FECHA          DESCRIPCIÓN
+--========================================================================
+Create trigger trValidarCuenta
+on TCuenta
+After insert, update
+as
+
+-----validamos si el propietario de la cuenta es mayor o menor de edad
+Declare @codcliente varchar(12)
+Declare @codcurador varchar(12)
+Declare @Edad int
+Declare @NumCuenta varchar(10)
+--obtener el codigo de cliente que se ha insertado en la tabla cuenta
+set @codcliente=(select codcliente from inserted)
+---obtener el codigo de curador del cliente se ha insertado
+set @codcurador =(select codcurador from Tcliente where codcliente=@codcliente)
+--obtener la cuenta que se ha insertado del cliente
+set @NumCuenta=(select numcuenta from Tcuenta where codcliente=@codcliente)
+---obtener la edad del cliente
+set @Edad =(select year(Getdate())-year(FecNacimiento) from Tcliente where codcliente=@codcliente)
+----validar la cuenta cuando es menor de edad
+if @edad<18---es menor de edad y se debe preguntar si tiene curador
+begin ---1
+    if @codcurador is null ---el menor de edad no tiene curador
+    begin--2
+        print 'El cliente es menor de edad y no tiene curado, NO PUEDE APERTURAR CUENTA'
+        --- si el dato no se cumple se elimina el registro insertado
+        delete Tcuenta where CodCliente=@codcliente and NumCuenta=@NumCuenta
+    end---fin de 2
+    else
+        print 'El cliente es menor de edad y tiene curador, SU CUENTA SE APERTURA CORRECTAMENTE'
+end--fin de 1
+else
+    print 'El cliente es mayor de edad, SU CUENTA SE APERTURO CORRECTAMENTE'
+
+insert into TCuenta values ('C010000001','A001','001000134776','AACURIO',2000,2000,0,6,GetDate(),null,1)
+insert into TCuenta values ('C010000002','A001','003000000192','AACURIO',4000,2000,0,6,GetDate(),null,1)
+insert into TCuenta values ('C010000003','A006','001001355437','AACURIO',500,500,0,6,GetDate(),null,1)
+insert into TCuenta values ('C010000004','A006','002000293830','AACURIO',500,500,0,6,GetDate(),null,1)
+
+select * from TCuenta
+
+select codcliente, cliente, codcurador, year(GETDATE())- year(fecnacimiento) as edad
+from TCliente
+where CodCliente='002000293830'
+
+select * from TTipAhorro
+
+update Tcliente
+set codcurador =null
+where CodCliente='002000293830'
+
+select * from TCliente where CodCurador is null
+order by year(GETDATE())- year(fecnacimiento)
