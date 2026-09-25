@@ -1,1 +1,34 @@
+---TRIGERS
+use DBAHORROS
+go
 
+IF OBJECT_ID ('trMandarMensaje', 'TR') IS NOT NULL
+BEGIN
+   DROP TRIGGER trMandarMensaje
+END;
+go	
+---===========================================================================
+--OBJETO			: trMandarMensaje
+--TIPO 			: Disparador
+--DESCRIPCIÓN		:  disparador que envia un mensaje si el registro se inserto o modifico correctamente
+--                     en la tabla usuario
+--FECHA DE CREACION  	:   25/09/2026                 
+--AUTOR                 :   “CADA UNO PONE SU NOMBRE”
+--OBSERVACIONES         :   Ninguna          
+--===========================================================================
+--PR                       MODIFICADO        FECHA               DESCRIPCIÓN
+--===========================================================================
+Create trigger trMandarMensaje
+on TUsuario
+After insert, update
+as
+	Print ('Se registro la modificacion con exito en Usuario')
+	
+-----ejecutar trigers
+SELECT * FROM TUsuario
+insert into TUsuario values ('IMEDINA','INGRID MEDINA ZEVALLOS','F',4,'Cajero-Operaciones','IMEDINA@MIBANQUITO.PE',GetDate(),1)
+
+select * from TUsuario where CodUsuario='AACURIO'
+update TUsuario
+set NumDocIdentidad='24673183'
+where CodUsuario='AACURIO'
