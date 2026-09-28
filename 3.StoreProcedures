@@ -85,3 +85,59 @@ GO
 -- ====================================================================
 EXEC uspListarClientesPorDepartamento '20';
 GO
+
+---crear un procedimiento almacenado que muestre la lista de clientes por cada departamento
+
+If Object_ID (N'uspInsertarCuenta', N'P') IS NOT NULL
+    DROP procedure uspInsertarCuenta
+Go
+--=========================================================================================
+--OBJETO        : uspInsertarCuenta
+--TIPO          : Stored Procedure
+--DESCRIPCIÓN   : Procedimiento almacenado que lista los distritos de cada provincia de un d
+--FECHA DE CREACION : --FECHA DE CREACION : 31/08/2026
+--AUTOR         : “CADA UNO PONE SU NOMBRE”
+--OBSERVACIONES : Ninguna
+--=========================================================================================
+Create procedure uspInsertarCuenta
+@Agencia varchar(02),
+@TipAhorro varchar(6),
+@CodCliente varchar(12),
+@CodUsuario varchar(10),
+@MonApertura numeric(10,3),
+@PlzApertura int
+as
+begin
+    Declare @ultimo varchar(10)
+    Declare @AgeUltimo varchar(2)
+    declare @Numero numeric(10,0)
+    declare @NumNuevo numeric(10,0)
+    declare @NumCuentaNuevo varchar(10)
+    declare @Saldo numeric(10,3)
+    declare @FechaActual datetime
+
+    set @ultimo= (select max(NumCuenta) from TCuenta)
+    set @AgeUltimo=substring(@ultimo,2,2)
+    set @Numero=cast(substring(@ultimo,4,10) as numeric)
+    set @NumNuevo=@Numero+1
+    set @NumCuentaNuevo ='C'+ @Agencia +'000000'+cast(@NumNuevo as varchar)
+    set @Saldo=@MonApertura
+    set @FechaActual=GetDate()
+
+insert into TCuenta values
+(
+    @NumCuentaNuevo,
+    @TipAhorro,
+    @CodCliente,
+    @CodUsuario,
+    @MonApertura,
+    @Saldo,
+    null,
+    @PlzApertura,
+    @FechaActual,
+    null,
+    1 )
+
+end
+
+uspInsertarCuenta '01', 'A001', '001001427301', 'WBUENO', 2000, 12
