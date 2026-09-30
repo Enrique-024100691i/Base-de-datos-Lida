@@ -1,0 +1,350 @@
+/*
+================================================================================
+EVALUACIÓN - INTEGRIDAD DE BASE DE DATOS
+Grupo: A006 - Ahorro Kids
+Departamentos: CUSCO (08), PUNO (21), AREQUIPA (04), APURIMAC (03)
+250 cuentas por departamento = 1,000 cuentas totales
+Base de Datos: DBAHORROS
+Fecha: 30/09/2026
+================================================================================
+*/
+
+USE DBAHORROS;
+GO
+
+/* ============================================================================
+   1. LIMPIEZA DE OBJETOS EXISTENTES
+   ============================================================================ */
+
+IF OBJECT_ID('vwVerificarCuentasA006', 'V') IS NOT NULL
+    DROP VIEW vwVerificarCuentasA006;
+GO
+
+IF OBJECT_ID('trgValidarCuentaA006', 'TR') IS NOT NULL
+    DROP TRIGGER trgValidarCuentaA006;
+GO
+
+IF OBJECT_ID('uspInsertarCuentasA006', 'P') IS NOT NULL
+    DROP PROCEDURE uspInsertarCuentasA006;
+GO
+
+/* ============================================================================
+   2. PROCEDIMIENTO ALMACENADO: uspInsertarCuentasA006
+   Inserta 1,000 cuentas A006 (250 por departamento)
+   ============================================================================ */
+
+CREATE PROCEDURE uspInsertarCuentasA006
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @DeptCodes TABLE (DeptCode CHAR(2), DeptName VARCHAR(50), TargetCount INT, CurrentCount INT);
+    DECLARE @NumCuenta VARCHAR(10);
+    DECLARE @CodCliente VARCHAR(12);
+    DECLARE @Counter INT;
+    DECLARE @DeptCode CHAR(2);
+    DECLARE @CodTipAhorro VARCHAR(6);
+    DECLARE @MonApertura NUMERIC(18,2);
+    DECLARE @FecApertura DATETIME;
+    DECLARE @PlzApertura INT;
+    DECLARE @CodUsuario VARCHAR(10);
+    DECLARE @SalCuenta NUMERIC(18,2);
+    DECLARE @FecVencimiento DATETIME;
+    DECLARE @IndCuenta VARCHAR(1);
+    DECLARE @MaxSeq INT;
+    
+    -- Departamentos asignados al grupo A006
+    INSERT INTO @DeptCodes VALUES 
+        ('08', 'CUSCO', 250, 0),
+        ('21', 'PUNO', 250, 0),
+        ('04', 'AREQUIPA', 250, 0),
+        ('03', 'APURIMAC', 250, 0);
+    
+    -- Configuración para A006 - Ahorro Kids
+    SET @CodTipAhorro = 'A006';
+    SET @PlzApertura = 12;           -- 12 meses según TTipAhorro
+    SET @CodUsuario = 'AACURIO';     -- Usuario registrado en TipAhorro
+    SET @FecApertura = GETDATE();
+    SET @FecVencimiento = DATEADD(MONTH, 12, GETDATE());
+    SET @IndCuenta = '1';            -- Cuenta activa
+    
+    -- Rangos de monto para A006
+    DECLARE @MontMinimo NUMERIC(18,2) = 20;
+    DECLARE @MontMaximo NUMERIC(18,2) = 500000;
+    
+    WHILE EXISTS (SELECT 1 FROM @DeptCodes WHERE CurrentCount < TargetCount)
+    BEGIN
+        SELECT TOP 1 @DeptCode = DeptCode 
+        FROM @DeptCodes 
+        WHERE CurrentCount < TargetCount
+        ORDER BY DeptCode;
+        
+        IF @DeptCode IS NULL BREAK;
+        
+        SET @Counter = 0;
+        
+        WHILE @Counter < (SELECT TargetCount - CurrentCount FROM @DeptCodes WHERE DeptCode = @DeptCode)
+        BEGIN
+            -- Cliente aleatorio del departamento sin cuenta A006
+            SELECT TOP 1 @CodCliente = C.CodCliente
+            FROM TCliente C
+            WHERE LEFT(C.CodUbigeo, 2) = @DeptCode
+              AND C.IndCliActivo = '1'
+              AND NOT EXISTS (
+                  SELECT 1 FROM TCuenta TC 
+                  WHERE TC.CodCliente = C.CodCliente 
+                  AND TC.CodTipAhorro = 'A006'
+              )
+            ORDER BY NEWID();
+            
+            IF @CodCliente IS NULL BREAK;
+            
+            -- Generar NumCuenta: DeptCode(2) + Secuencial(8)
+            SELECT @MaxSeq = ISNULL(MAX(CAST(SUBSTRING(NumCuenta, 3, 8) AS INT)), 0) 
+            FROM TCuenta 
+            WHERE SUBSTRING(NumCuenta, 1, 2) = @DeptCode;
+            
+            SET @NumCuenta = @DeptCode + RIGHT('00000000' + CAST(@MaxSeq + 1 AS VARCHAR(8)), 8);
+            
+            -- Monto aleatorio dentro del rango
+            SET @MonApertura = ROUND(@MontMinimo + (RAND() * (@MontMaximo - @MontMinimo)), 2);
+            SET @SalCuenta = @MonApertura;
+            
+            BEGIN TRY
+                INSERT INTO TCuenta (
+                    NumCuenta, CodTipAhorro, CodCliente, CodUsuario,
+                    MonApertura, SalCuenta, MontInteresGanado,
+                    PlzApertura, FecApertura, FecVencimiento, IndCuenta
+                ) VALUES (
+                    @NumCuenta, 'A006', @CodCliente, @CodUsuario,
+                    @MonApertura, @SalCuenta, 0,
+                    @PlzApertura, @FecApertura, @FecVencimiento, @IndCuenta
+                );
+                
+                SET @Counter = @Counter + 1;
+                UPDATE @DeptCodes SET CurrentCount = CurrentCount + 1 WHERE DeptCode = @DeptCode;
+            END TRY
+            BEGIN CATCH
+                PRINT 'Error insertando para cliente ' + @CodCliente + ': ' + ERROR_MESSAGE();
+            END CATCH
+            
+            IF @Counter > 300 BREAK;
+        END
+    END
+    
+    -- Resumen final
+    SELECT DeptCode, DeptName, CurrentCount as Insertados, TargetCount as Objetivo
+    FROM @DeptCodes;
+    
+    SELECT COUNT(*) as TotalCuentasA006 FROM TCuenta WHERE CodTipAhorro = 'A006';
+END
+GO
+
+/* ============================================================================
+   3. TRIGGER: trgValidarCuentaA006
+   Valida reglas de negocio para cuentas A006 en INSERT/UPDATE
+   ============================================================================ */
+
+CREATE TRIGGER trgValidarCuentaA006
+ON TCuenta
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validaciones específicas para A006 (Ahorro Kids)
+    IF EXISTS (
+        SELECT 1 FROM inserted i
+        JOIN TTipAhorro ta ON i.CodTipAhorro = ta.CodTipAhorro
+        WHERE i.CodTipAhorro = 'A006'
+          AND (
+              -- Monto apertura dentro de rango
+              i.MonApertura < ta.MontMinimo 
+              OR i.MonApertura > ta.MontMaximo
+              -- Saldo no negativo
+              OR i.SalCuenta < 0
+              -- Plazo correcto (12 meses)
+              OR i.PlzApertura <> ta.Plazo
+              -- Moneda correcta (01 = Soles)
+              OR ta.Moneda <> '01'
+              -- Cliente existe y activo
+              OR NOT EXISTS (SELECT 1 FROM TCliente c WHERE c.CodCliente = i.CodCliente AND c.IndCliActivo = '1')
+              -- Usuario existe
+              OR NOT EXISTS (SELECT 1 FROM TUsuario u WHERE u.CodUsuario = i.CodUsuario)
+              -- Tipo ahorro existe y vigente
+              OR NOT EXISTS (SELECT 1 FROM TTipAhorro t WHERE t.CodTipAhorro = i.CodTipAhorro AND t.IndVigente = '1')
+              -- Formato NumCuenta: 10 chars, DeptCode válido
+              OR LEN(i.NumCuenta) <> 10
+              OR SUBSTRING(i.NumCuenta, 1, 2) NOT IN ('08','21','04','03')
+              OR TRY_CAST(SUBSTRING(i.NumCuenta, 3, 8) AS INT) IS NULL
+              -- Fecha apertura no futura
+              OR i.FecApertura > GETDATE()
+              -- Fecha vencimiento = apertura + plazo
+              OR i.FecVencimiento <> DATEADD(MONTH, i.PlzApertura, i.FecApertura)
+          )
+    )
+    BEGIN
+        RAISERROR('Validación fallida: La cuenta A006 no cumple con las reglas de negocio.', 16, 1);
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END
+    
+    -- Integridad referencial general
+    IF EXISTS (
+        SELECT 1 FROM inserted i
+        WHERE NOT EXISTS (SELECT 1 FROM TCliente c WHERE c.CodCliente = i.CodCliente)
+           OR NOT EXISTS (SELECT 1 FROM TUsuario u WHERE u.CodUsuario = i.CodUsuario)
+           OR NOT EXISTS (SELECT 1 FROM TTipAhorro t WHERE t.CodTipAhorro = i.CodTipAhorro)
+    )
+    BEGIN
+        RAISERROR('Error de integridad referencial: Cliente, Usuario o Tipo de Ahorro no existen.', 16, 1);
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END
+    
+    -- Formato NumCuenta general
+    IF EXISTS (
+        SELECT 1 FROM inserted i
+        WHERE LEN(i.NumCuenta) <> 10
+    )
+    BEGIN
+        RAISERROR('NumCuenta debe tener exactamente 10 caracteres.', 16, 1);
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END
+END
+GO
+
+/* ============================================================================
+   4. VISTA: vwVerificarCuentasA006
+   Consulta de verificación con todos los campos requeridos
+   ============================================================================ */
+
+CREATE VIEW vwVerificarCuentasA006
+AS
+SELECT 
+    c.NumCuenta AS [Numero de Cuenta],
+    ta.NomProducto AS [Nombre/Descripcion Cuenta],
+    c.CodCliente AS [Codigo Cliente],
+    cli.Cliente AS [Nombres y Apellidos Cliente],
+    DATEDIFF(YEAR, cli.FecNacimiento, GETDATE()) - 
+        CASE WHEN DATEADD(YEAR, DATEDIFF(YEAR, cli.FecNacimiento, GETDATE()), cli.FecNacimiento) > GETDATE() 
+             THEN 1 ELSE 0 END AS [Edad Cliente],
+    CASE 
+        WHEN cli.CodCurador IS NOT NULL AND cli.CodCurador <> '' 
+        THEN (SELECT TOP 1 Cliente FROM TCliente WHERE CodCliente = cli.CodCurador)
+        ELSE 'Sin Curador'
+    END AS [Curador],
+    ta.NomProducto AS [Tipo de Cuenta],
+    c.PlzApertura AS [Plazo],
+    c.MonApertura AS [Monto de Apertura],
+    c.SalCuenta AS [Saldo de la Cuenta],
+    c.FecApertura AS [Fecha de Apertura],
+    c.FecVencimiento AS [Fecha de Vencimiento],
+    LEFT(cli.CodUbigeo, 2) AS [Cod. Departamento],
+    (SELECT TOP 1 NOMBDEP FROM TUbigeo WHERE LEFT(CodUbigeo, 2) = LEFT(cli.CodUbigeo, 2)) AS [Departamento],
+    c.CodUsuario AS [Usuario Registro],
+    c.IndCuenta AS [Estado Cuenta]
+FROM TCuenta c
+JOIN TTipAhorro ta ON c.CodTipAhorro = ta.CodTipAhorro
+JOIN TCliente cli ON c.CodCliente = cli.CodCliente
+WHERE c.CodTipAhorro = 'A006'
+GO
+
+/* ============================================================================
+   5. EJECUCIÓN DEL PROCEDIMIENTO (Insertar 1,000 cuentas)
+   ============================================================================ */
+
+-- Ejecutar para insertar las 1,000 cuentas
+EXEC uspInsertarCuentasA006;
+GO
+
+/* ============================================================================
+   6. CONSULTAS DE VERIFICACIÓN Y REPORTES
+   ============================================================================ */
+
+-- 6.1 Resumen por departamento
+SELECT [Departamento], COUNT(*) as [Cuentas Insertadas],
+       MIN([Monto de Apertura]) as MinMonto,
+       MAX([Monto de Apertura]) as MaxMonto,
+       AVG([Monto de Apertura]) as PromedioMonto
+FROM vwVerificarCuentasA006
+GROUP BY [Departamento]
+ORDER BY [Departamento];
+GO
+
+-- 6.2 Listado completo ordenado
+SELECT * FROM vwVerificarCuentasA006 
+ORDER BY [Departamento], [Numero de Cuenta];
+GO
+
+-- 6.3 Total general
+SELECT COUNT(*) as Total_Cuentas_A006 FROM TCuenta WHERE CodTipAhorro = 'A006';
+GO
+
+-- 6.4 Verificar integridad de datos
+SELECT 
+    'Total Cuentas' as Validacion, COUNT(*) as Valor FROM TCuenta WHERE CodTipAhorro = 'A006'
+UNION ALL
+SELECT 'Monto >= 20', COUNT(*) FROM TCuenta WHERE CodTipAhorro = 'A006' AND MonApertura >= 20
+UNION ALL
+SELECT 'Monto <= 500000', COUNT(*) FROM TCuenta WHERE CodTipAhorro = 'A006' AND MonApertura <= 500000
+UNION ALL
+SELECT 'Saldo = Monto Apertura', COUNT(*) FROM TCuenta WHERE CodTipAhorro = 'A006' AND SalCuenta = MonApertura
+UNION ALL
+SELECT 'Plazo = 12', COUNT(*) FROM TCuenta WHERE CodTipAhorro = 'A006' AND PlzApertura = 12
+UNION ALL
+SELECT 'DeptCode Valido', COUNT(*) FROM TCuenta WHERE CodTipAhorro = 'A006' AND SUBSTRING(NumCuenta,1,2) IN ('08','21','04','03')
+UNION ALL
+SELECT 'Clientes Activos', COUNT(*) FROM TCuenta c JOIN TCliente cli ON c.CodCliente = cli.CodCliente WHERE c.CodTipAhorro = 'A006' AND cli.IndCliActivo = '1';
+GO
+
+/* ============================================================================
+   7. PRUEBAS DEL TRIGGER (Validaciones)
+   ============================================================================ */
+
+-- PRUEBA 1: Monto menor al mínimo (DEBE FALLAR)
+/*
+INSERT INTO TCuenta (NumCuenta, CodTipAhorro, CodCliente, CodUsuario, MonApertura, SalCuenta, MontInteresGanado, PlzApertura, FecApertura, FecVencimiento, IndCuenta)
+VALUES ('9900000001', 'A006', '009005001012', 'AACURIO', 10, 10, 0, 12, GETDATE(), DATEADD(MONTH,12,GETDATE()), '1');
+-- Error esperado: "Validación fallida: La cuenta A006 no cumple con las reglas de negocio."
+*/
+
+-- PRUEBA 2: Monto mayor al máximo (DEBE FALLAR)
+/*
+INSERT INTO TCuenta (NumCuenta, CodTipAhorro, CodCliente, CodUsuario, MonApertura, SalCuenta, MontInteresGanado, PlzApertura, FecApertura, FecVencimiento, IndCuenta)
+VALUES ('9900000002', 'A006', '009005001012', 'AACURIO', 600000, 600000, 0, 12, GETDATE(), DATEADD(MONTH,12,GETDATE()), '1');
+-- Error esperado: "Validación fallida..."
+*/
+
+-- PRUEBA 3: DeptCode inválido en NumCuenta (DEBE FALLAR)
+/*
+INSERT INTO TCuenta (NumCuenta, CodTipAhorro, CodCliente, CodUsuario, MonApertura, SalCuenta, MontInteresGanado, PlzApertura, FecApertura, FecVencimiento, IndCuenta)
+VALUES ('9900000003', 'A006', '009005001012', 'AACURIO', 1000, 1000, 0, 12, GETDATE(), DATEADD(MONTH,12,GETDATE()), '1');
+-- Error esperado: "Validación fallida..."
+*/
+
+-- PRUEBA 4: Datos válidos (DEBE FUNCIONAR)
+/*
+INSERT INTO TCuenta (NumCuenta, CodTipAhorro, CodCliente, CodUsuario, MonApertura, SalCuenta, MontInteresGanado, PlzApertura, FecApertura, FecVencimiento, IndCuenta)
+VALUES ('0800000251', 'A006', '009005001012', 'AACURIO', 1000, 1000, 0, 12, GETDATE(), DATEADD(MONTH,12,GETDATE()), '1');
+-- Éxito: "El cliente es mayor de edad, SU CUENTA SE APERTURO CORRECTAMENTE"
+*/
+
+
+
+/* ============================================================================
+   8. LIMPIEZA (Si se necesita reiniciar)
+   ============================================================================ */
+
+-- Borrar cuentas A006 para volver a ejecutar el procedimiento
+--DELETE FROM TCuenta WHERE CodTipAhorro = 'A006';
+--GO
+--EXEC uspInsertarCuentasA006;
+--GO
+
+/*
+================================================================================
+FIN DEL SCRIPT
+================================================================================
+*/
