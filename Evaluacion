@@ -348,3 +348,10 @@ VALUES ('0800000251', 'A006', '009005001012', 'AACURIO', 1000, 1000, 0, 12, GETD
 FIN DEL SCRIPT
 ================================================================================
 */
+
+-- 1. Mostrar clientes que tienen más de 3 cuentas
+SELECT codcliente, COUNT(*) AS numerocuentas
+FROM TCuenta
+GROUP BY CodCliente
+HAVING COUNT(*) in(1,2,3) 
+ORDER BY numerocuentas DESC;
