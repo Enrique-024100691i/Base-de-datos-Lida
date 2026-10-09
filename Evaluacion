@@ -355,3 +355,67 @@ FROM TCuenta
 GROUP BY CodCliente
 HAVING COUNT(*) in(1,2,3) 
 ORDER BY numerocuentas DESC;
+
+
+---1. ////GENERAR BACKUP FULL DE LA BASE DE DATOS////-------
+	DECLARE @NOMBRE VARCHAR (100)
+	DECLARE @RUTA VARCHAR (150)
+	DECLARE @FECHA VARCHAR (150)
+	DECLARE @DEST VARCHAR (150)
+
+	SELECT @FECHA=((select rtrim(right('00'+rtrim(ltrim(str(day(GETDATE())))),2)))+rtrim(ltrim(substring(cast(GETDATE() as char),1,3)))+ltrim(str(year(GETDATE()))))
+	SELECT @NOMBRE='BkFull_DBAHORROS-'+ @Fecha+'-'+ RTRIM(LTRIM(RIGHT('00'+SUBSTRING(LTRIM(RTRIM(CAST(CURRENT_TIMESTAMP AS VARCHAR))),13,2),2)+'_'+SUBSTRING(LTRIM(RTRIM(CAST(CURRENT_TIMESTAMP AS VARCHAR))),16,4)))
+	SELECT @RUTA='D:\BACKUPS\COMPLETO'
+	SELECT @DEST=  @RUTA + @NOMBRE +'.bak'
+  
+	BACKUP DATABASE [BDAHORROS] 
+	TO DISK =@DEST
+	WITH NOFORMAT, NOINIT,  NAME = N'DBAHORROS -Copia Completa de la base de datos', 
+	SKIP, NOREWIND, NOUNLOAD,  STATS = 10
+
+	DECLARE @backupSetId as int
+	select @backupSetId = position from msdb..backupset where database_name=N'DBAHORROS ' and 
+	backup_set_id=(select max(backup_set_id) from msdb..backupset where database_name=N'DBAHORROS ')
+	if @backupSetId is null begin raiserror(N'Error de comprobación. No se encuentra la información de copia de seguridad para la base de datos ''BDFinanciero ''.', 16, 1) end
+	RESTORE VERIFYONLY FROM  DISK = @DEST WITH  FILE = @backupSetId,  NOUNLOAD,  NOREWIND
+
+	print ('El backup  concluyo exitosamente')
+
+---2. ////GENERAR BACKUP DIFERENCIAL////-------
+	DECLARE @HORA VARCHAR (250)
+	DECLARE @RUTA VARCHAR (250)
+	DECLARE @DEST VARCHAR (250)
+	DECLARE @NOMBRE VARCHAR (100)
+	DECLARE @FECHA VARCHAR (150)
+
+	--Setea variables de ruta y nombre
+	SELECT @FECHA=((select rtrim(right('00'+rtrim(ltrim(str(day(GETDATE())))),2)))+rtrim(ltrim(substring(cast(GETDATE() as char),1,3)))+ltrim(str(year(GETDATE()))))
+	SELECT @NOMBRE='BkDif_DBAHORROS -'+ @Fecha+'-'+ RTRIM(LTRIM(RIGHT('00'+SUBSTRING(LTRIM(RTRIM(CAST(CURRENT_TIMESTAMP AS VARCHAR))),13,2),2)+'_'+SUBSTRING(LTRIM(RTRIM(CAST(CURRENT_TIMESTAMP AS VARCHAR))),16,4)))
+	SELECT @RUTA='D:\BACKUPS\DIFERENCIAL\'
+	SELECT @DEST=  @RUTA +@NOMBRE+'.bak'
+	
+	--Genera Backup diferencial
+	BACKUP DATABASE [BDAHORROS] TO  DISK = @DEST
+	WITH  DIFFERENTIAL , NOFORMAT, NOINIT,  NAME = N'DBAHORROS -Copia Diferencial Base de datos', 
+	SKIP, NOREWIND, NOUNLOAD,  STATS = 10
+	
+	print ('El backup diferencial  concluyo exitosamente')
+
+---3. /// GENERA BACKUP DE LOG DE TRANSACCIONES////----
+	DECLARE @HORA VARCHAR (250)
+	DECLARE @RUTA VARCHAR (250)
+	DECLARE @DEST VARCHAR (250)
+	DECLARE @NOMBRE VARCHAR (100)
+	DECLARE @FECHA VARCHAR (150)
+
+	--Setea variables de ruta y nombre
+	SELECT @FECHA=((select rtrim(right('00'+rtrim(ltrim(str(day(GETDATE())))),2)))+rtrim(ltrim(substring(cast(GETDATE() as char),1,3)))+ltrim(str(year(GETDATE()))))
+	SELECT @NOMBRE='BkLog_ BDAHORROS -'+ @Fecha+'-'+ RTRIM(LTRIM(RIGHT('00'+SUBSTRING(LTRIM(RTRIM(CAST(CURRENT_TIMESTAMP AS VARCHAR))),13,2),2)+'_'+SUBSTRING(LTRIM(RTRIM(CAST(CURRENT_TIMESTAMP AS VARCHAR))),16,4)))
+	SELECT @RUTA='D:\BACKUPS_LOG\'
+	SELECT @DEST=  @RUTA +@NOMBRE+'.bak'
+	
+	--Genera Backup los de transacciones
+	BACKUP LOG [BDAHORROS] TO  DISK =@DEST
+	WITH NOFORMAT, NOINIT,  NAME = N' BDFinanciero -Copia de Seguridad del Registro de transacciones', 
+	SKIP, NOREWIND, NOUNLOAD,  STATS = 10
+	print ('El backup log de transacciones  
