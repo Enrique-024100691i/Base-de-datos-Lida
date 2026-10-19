@@ -1,0 +1,49 @@
+use master
+go
+----crear una entidad de seguridad  INICIO DE SESION con autenticacion windows
+USE [master]
+GO
+CREATE LOGIN [LAB205-PC-06\sqlWindows] FROM WINDOWS WITH DEFAULT_DATABASE=[master]
+GO
+
+----Crear una entidad de seguridad INICIO DE SESIÓN on autenticacion SQL SERVER
+USE [master]
+GO
+CREATE LOGIN [sqlCuenta]
+    WITH PASSWORD=N'12345678'
+    MUST_CHANGE, DEFAULT_DATABASE=[master],
+    CHECK_EXPIRATION=ON, CHECK_POLICY=ON
+GO
+
+USE DBAHORROS
+GO
+CREATE USER usuWindows FOR LOGIN [LAB205-PC06\sqlWindows]
+GO
+
+-----2. ENTIDADES DE SEGURIDAD A NIVEL DE BASE DE DATOS
+----Crear una entidad de seguridad USUARIO DE BASE DE DATOS 
+
+USE DBAHORROS
+GO
+CREATE USER usuWindows FOR LOGIN [LAB205-PC-06\sqlWindows]
+GO
+
+CREATE USER usuSql FOR LOGIN [sqlCuenta]
+GO
+
+
+--3.PERMISOS SOBRE LAS BASE DE DATOS
+---Permisos Generales
+    --Permiso de lectura
+        GRANT Select TO [usuWindows]
+        GO
+    -- permisos de escritura
+        GRANT insert TO [usuWindows]
+        GO
+        GRANT update TO [usuWindows]
+        GO
+
+--PERMISOS ESPECIFICOS
+---Permisos Específicos / Granular
+---Select
+    GRANT CREATE PROCEDURE to usuSQL
