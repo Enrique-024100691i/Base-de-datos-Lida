@@ -1,0 +1,66 @@
+use DBAHORROS
+go
+
+select * from TCliente
+select * from Tcuenta
+select * from TUsuario
+select * from TUbigeo
+select * from TCliente
+where year(GetDate())-Year(FecNacimiento)<18
+
+--modificamos el tipo de documento
+update TCliente
+set TipDocumento=1
+where year(GetDate())-Year(FecNacimiento)<18
+
+select * from TCliente where Sexo='F'
+
+update TCliente
+set sexo='M'
+where CodCliente in ('001001355437','001001406486','009000002847')
+
+select sexo, count(*) from TCliente
+group by sexo
+
+select * from TCuenta where NumCuenta='C030000001'
+----probamos si tenemos permiso de insercion
+
+----insertar datos en la tabla TMovCuenta
+select * from TMovCuenta
+insert into TMovCuenta values (1,'C030000001',100,1,getdate(),'AUGARTE')
+insert into TMovCuenta values (2,'C030000001',25,1,getdate(),'AUGARTE')
+
+select * from TCuenta where NumCuenta='C030000001'
+select * from TMovCuenta where NumCuenta='C030000001'
+
+
+
+--consulta suma los movientos que son de depsoito
+select sum(MontMovimiento) from TMovCuenta
+where NumCuenta='C030000001'
+and TipMovimiento=1
+
+--consulta que suma los movimiento que son de retiro
+select sum(MontMovimiento) from TMovCuenta
+where NumCuenta='C030000001'
+and TipMovimiento=2
+
+---actulizar el saldo de la cuenta
+declare @depositos numeric (10,3)
+declare @retiros numeric (10,3)
+  set @depositos=Isnull((select sum(MontMovimiento)
+                         from TMovCuenta where NumCuenta='C030000001'
+                         and TipMovimiento=1),0)
+select @depositos
+
+  set @retiros=Isnull((select sum(MontMovimiento)
+                       from TMovCuenta where NumCuenta='C030000001'
+                       and TipMovimiento=2),0)
+select @retiros
+
+update TCuenta
+set SalCuenta = MonApertura+@depositos-@retiros
+where NumCuenta='C030000001'
+
+select * from TCuenta where NumCuenta='C030000001'
+select * from TMovCuenta where NumCuenta='C030000001'
