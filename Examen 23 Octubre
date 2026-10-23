@@ -1,0 +1,139 @@
+USE [master]
+GO
+
+-- 1. Crear inicio de sesión con autenticación de Windows para sqlWindows
+CREATE LOGIN [INGSISLAB\sqlWindows] FROM WINDOWS WITH DEFAULT_DATABASE=[master]
+GO
+
+-- 2. Crear inicios de sesión con autenticación de SQL Server (sqlUsuario y sqlCarga)
+USE [master]
+GO
+CREATE LOGIN [sqlCarga]
+    WITH PASSWORD=N'12345678'
+    MUST_CHANGE, DEFAULT_DATABASE=[master],
+    CHECK_EXPIRATION=ON, CHECK_POLICY=ON
+GO
+
+USE [master]
+GO
+CREATE LOGIN [sqlUsuario]
+    WITH PASSWORD=N'12345678'
+    MUST_CHANGE, DEFAULT_DATABASE=[master],
+    CHECK_EXPIRATION=ON, CHECK_POLICY=ON
+GO
+
+-- 3. Crear los usuarios de base de datos asociados a sus inicios de sesión
+USE DBAHORROS
+GO
+
+CREATE USER [dbWindows] FOR LOGIN [INGSISLAB\sqlWindows]
+GO
+
+CREATE USER [dbUsuario] FOR LOGIN [sqlUsuario]
+GO
+
+CREATE USER [dbCarga] FOR LOGIN [sqlCarga]
+GO
+
+USE DBAHORROS
+GO
+
+-- 1. Permisos para dbWindows:
+-- Solo lectura (SELECT) en todas las tablas de la base de datos.
+GRANT SELECT TO [dbWindows]
+GO
+
+
+-- 2. Permisos para dbUsuario:
+-- Mínimo privilegio para crear y ejecutar un trigger sobre la tabla TMovCuenta.
+-- Se requiere ALTER en la tabla para crear/modificar triggers en T-SQL.
+-- Permite a dbUsuario crear/modificar triggers sobre la tabla de movimientos
+GRANT ALTER ON OBJECT::dbo.TMovCuentaCliente TO [dbUsuario];
+
+-- Permite al trigger leer los movimientos insertados
+GRANT SELECT ON OBJECT::dbo.TMovCuentaCliente TO [dbUsuario];
+
+-- Permite al trigger actualizar el saldo en TCuenta
+GRANT UPDATE ON OBJECT::dbo.TCuenta TO [dbUsuario];
+GO
+
+
+-- 3. Otorgar permiso de inserción al usuario dbCarga
+GRANT INSERT ON OBJECT::dbo.TMovCuenta TO [dbCarga];
+GO
+
+select * from TMovCuenta
+
+-- 4.Permiso para que dbCarga pueda ejecutar el procedimiento almacenado
+-- (Sin requerir INSERT directo sobre la tabla TCuenta)
+USE DBAHORROS;
+GO
+
+GRANT EXECUTE ON OBJECT::dbo.uspInsertarCuentasA006 TO [dbCarga];
+GO
+
+use DBAHORROS
+go
+
+----insertar datos en la tabla TMovCuenta según el requerimiento
+
+-- Cuenta 1 ('0100000001'): 3 depósitos y 3 retiros
+insert into TMovCuenta values (1, '0100000001', 500, 1, getdate(), 'AUGARTE')
+insert into TMovCuenta values (2, '0100000001', 300, 1, getdate(), 'AUGARTE')
+insert into TMovCuenta values (3, '0100000001', 200, 1, getdate(), 'AUGARTE')
+insert into TMovCuenta values (4, '0100000001', 100, 2, getdate(), 'AUGARTE')
+insert into TMovCuenta values (5, '0100000001', 150, 2, getdate(), 'AUGARTE')
+insert into TMovCuenta values (6, '0100000001', 50,  2, getdate(), 'AUGARTE')
+
+-- Cuenta 2 ('0100000002'): 1 depósito y 4 retiros
+insert into TMovCuenta values (7, '0100000002', 400, 1, getdate(), 'AUGARTE')
+insert into TMovCuenta values (8, '0100000002', 100, 2, getdate(), 'AUGARTE')
+insert into TMovCuenta values (9, '0100000002', 50,  2, getdate(), 'AUGARTE')
+insert into TMovCuenta values (10, '0100000002', 80, 2, getdate(), 'AUGARTE')
+insert into TMovCuenta values (11, '0100000002', 70, 2, getdate(), 'AUGARTE')
+
+-- Cuenta 3 ('0100000003'): 5 depósitos y 1 retiro
+insert into TMovCuenta values (12, '0100000003', 200, 1, getdate(), 'AUGARTE')
+insert into TMovCuenta values (13, '0100000003', 150, 1, getdate(), 'AUGARTE')
+insert into TMovCuenta values (14, '0100000003', 100, 1, getdate(), 'AUGARTE')
+insert into TMovCuenta values (15, '0100000003', 250, 1, getdate(), 'AUGARTE')
+insert into TMovCuenta values (16, '0100000003', 300, 1, getdate(), 'AUGARTE')
+insert into TMovCuenta values (17, '0100000003', 180, 2, getdate(), 'AUGARTE')
+
+USE DBAHORROS;
+GO
+
+
+
+-- 2. Eliminación previa del trigger si ya existía
+IF OBJECT_ID('trg_TMovCuentaCliente_ActualizarSaldo', 'TR') IS NOT NULL
+BEGIN
+    DROP TRIGGER trg_TMovCuentaCliente_ActualizarSaldo;
+END;
+GO
+
+-- 3. Creación del Trigger
+CREATE TRIGGER trg_TMovCuentaCliente_ActualizarSaldo
+ON TMovCuenta
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- TipMovimiento: '1' = Depósito (+), '2' = Retiro (-)
+    UPDATE C
+    SET C.SalCuenta = C.SalCuenta + CASE 
+                                      WHEN I.TipMovimiento = '1' THEN I.MontMovimiento
+                                      WHEN I.TipMovimiento = '2' THEN -I.MontMovimiento
+                                      ELSE 0
+                                   END
+    FROM TCuenta C
+    INNER JOIN inserted I ON C.NumCuenta = I.NumCuenta;
+END;
+GO
+
+USE DBAHORROS;
+GO
+
+EXECUTE dbo.uspInsertarCuentasA006;
+GO
