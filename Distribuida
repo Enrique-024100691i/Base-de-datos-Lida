@@ -1,0 +1,40 @@
+use master
+go
+IF EXISTS (SELECT * FROM SYSDATABASES WHERE NAME ='DBAHORROS')
+DROP DATABASE DBAHORROS
+go
+CREATE DATABASE DBAHORROS
+---archivo primario
+ON PRIMARY 
+	(	NAME = DBAHORROS_dat,
+		FILENAME = 'D:\DBAHORROS_DISTRIBUIDA\Ahorros_dat.mdf',
+		SIZE = 20,
+		MAXSIZE = UNLIMITED,
+		FILEGROWTH = 20MB )
+		---archivo secundario
+		LOG ON
+	(	NAME = DBAHORROS_log,
+		FILENAME = 'D:\DBAHORROS_DISTRIBUIDA\Ahorros_log.ldf',
+		SIZE = 20,
+		MAXSIZE = UNLIMITED,
+		FILEGROWTH = 20MB )
+GO
+
+
+EXEC master.dbo.sp_enum_oledb_providers;
+
+EXEC sp_dropserver 'LAB205-PC-17\DISTRIBUIDA', 'droplogins';
+GO
+
+EXEC master.dbo.sp_addlinkedserver
+    @server   = N'LAB205-PC-17\DISTRIBUIDA',
+    @srvproduct = N'',
+    @provider = N'MSOLEDBSQL',
+    @datasrc  = N'LAB205-PC-17\DISTRIBUIDA',
+    @provstr  = N'Encrypt=No';
+GO
+
+use DBAHORROS
+SELECT * FROM TCliente
+go
+SELECT * FROM [LAB205-PC-17\DISTRIBUIDA].[DBAHORROS].[DBO].[TCliente]
